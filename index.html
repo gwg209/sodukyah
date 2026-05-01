@@ -210,9 +210,35 @@
     const menuBtn = document.getElementById('menuBtn');
     const menuContent = document.getElementById('menuContent');
 
+    // Persistence Logic
+    function saveGameState() {
+        const state = {
+            currentBoard,
+            hintMask,
+            notesBoard
+        };
+        localStorage.setItem('sudokyah_state', JSON.stringify(state));
+    }
+
+    function loadGameState() {
+        const saved = localStorage.getItem('sudokyah_state');
+        if (saved) {
+            const state = JSON.parse(saved);
+            currentBoard = state.currentBoard;
+            hintMask = state.hintMask;
+            notesBoard = state.notesBoard || notesBoard;
+            updateUI();
+            if (document.getElementById('notesSection').style.display === 'block') {
+                renderNotesGrid();
+            }
+            return true;
+        }
+        return false;
+    }
+
     // Toggle Menu on Click
     menuBtn.addEventListener('click', (e) => {
-        e.stopPropagation(); // Prevents immediate closing by the window listener
+        e.stopPropagation();
         menuContent.classList.toggle('show');
     });
 
@@ -229,7 +255,7 @@
             for (let c = 0; c < 9; c++) {
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.inputMode = 'numeric'; // Forces numeric keypad on mobile
+                input.inputMode = 'numeric';
                 input.maxLength = 1;
                 input.className = 'cell';
                 input.dataset.row = r;
@@ -238,6 +264,10 @@
                 input.onfocus = () => { lastFocused = {r, c}; };
                 gridEl.appendChild(input);
             }
+        }
+        // Load data if it exists, otherwise generate a default Beginner board
+        if (!loadGameState()) {
+            createSudokuByDifficulty(45, 'Beginner');
         }
     }
 
@@ -253,16 +283,14 @@
             input.value = '';
             currentBoard[r][c] = 0;
             input.classList.remove('error', 'correct', 'empty-highlight', 'user-val');
-            if (document.getElementById('notesSection').style.display === 'block') {
-                initializeAllNotes();
-                renderNotesGrid();
-            }
+            saveGameState();
             return;
         }
         currentBoard[r][c] = val;
         input.classList.remove('error', 'correct', 'empty-highlight');
         input.classList.add('user-val');
         updateNotesAfterPlacement(r, c, val);
+        saveGameState(); // Save on every move
     }
 
     function toast(msg) {
@@ -274,11 +302,35 @@
 
     function isValidPlacement(board, r, c, num) {
         for (let i = 0; i < 9; i++) {
-            if (board[r][i] === num || board[i][c] === num) return false;
+            if (i !== c && board[r][i] === num) return false;
+            if (i !== r && board[i][c] === num) return false;
             const sRow = Math.floor(r / 3) * 3, sCol = Math.floor(c / 3) * 3;
-            if (board[sRow + Math.floor(i / 3)][sCol + (i % 3)] === num) return false;
+            const curR = sRow + Math.floor(i / 3), curC = sCol + (i % 3);
+            if ((curR !== r || curC !== c) && board[curR][curC] === num) return false;
         }
         return true;
+    }
+
+    // UPDATED: Improved Check Puzzle Logic
+    function analyzeBoardSolutions() {
+        // 1. Check for immediate rule violations (duplicates)
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                const val = currentBoard[r][c];
+                if (val !== 0) {
+                    if (!isValidPlacement(currentBoard, r, c, val)) {
+                        alert(`Invalid: Conflict found at Row ${r+1}, Col ${c+1}.`);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // 2. If valid so far, check if it leads to a solution
+        const count = countSolutions(currentBoard);
+        if (count === 0) alert("No Solutions: Even though there are no duplicates, this configuration cannot be completed.");
+        else if (count === 1) alert("Valid: This puzzle has exactly one unique solution.");
+        else alert(`Ambiguous: This puzzle has ${count > 1 ? 'multiple' : count} solutions.`);
     }
 
     function fillBoardRandomly(board) {
@@ -346,14 +398,8 @@
         fillBoardRandomly(fullBoard);
         currentBoard = pokeHoles(fullBoard, clues);
         updateUI(true);
+        saveGameState();
         toast(`${level} ready!`);
-    }
-
-    function analyzeBoardSolutions() {
-        const count = countSolutions(currentBoard);
-        if (count === 0) alert("No Solutions: The board is invalid.");
-        else if (count === 1) alert("Unique Solution: The puzzle is valid.");
-        else alert("Multiple Solutions: The puzzle is ambiguous.");
     }
 
     function scoreSudokuPuzzle() {
@@ -368,14 +414,12 @@
                     empty++;
                     input.classList.add('empty-highlight');
                 } else {
-                    currentBoard[r][c] = 0;
                     if (isValidPlacement(currentBoard, r, c, val)) {
                         input.classList.add('correct');
                     } else {
                         errors++;
                         input.classList.add('error');
                     }
-                    currentBoard[r][c] = val;
                 }
             }
         }
@@ -388,6 +432,7 @@
         if (fillBoardRandomly(solveCopy)) {
             currentBoard = solveCopy;
             updateUI();
+            saveGameState();
             toast("Solved!");
         } else {
             alert("No solution possible.");
@@ -397,12 +442,13 @@
     function giveHint() {
         if (!lastFocused) { alert("Please click on a cell first."); return; }
         const {r, c} = lastFocused;
-        if (hintMask[r][c]) return;
+        if (hintMask[r][c] || currentBoard[r][c] !== 0) return;
         let solveCopy = JSON.parse(JSON.stringify(currentBoard));
         if (fillBoardRandomly(solveCopy)) {
             currentBoard[r][c] = solveCopy[r][c];
             updateUI();
             document.querySelectorAll('.cell')[r * 9 + c].classList.add('hint-provided');
+            saveGameState();
         } else {
             alert("No solution possible with current entries.");
         }
@@ -429,6 +475,7 @@
             }
         }
         updateUI();
+        saveGameState();
         toast("Answers cleared.");
     }
 
@@ -438,6 +485,7 @@
         );
         document.getElementById('notesGrid').innerHTML = '';
         document.getElementById('notesSection').style.display = 'none';
+        saveGameState();
     }
 
     function resetFullBoard() {
@@ -446,14 +494,18 @@
         lastFocused = null;
         updateUI();
         clearNotes();
+        localStorage.removeItem('sudokyah_state');
     }
 
     function toggleNotes() {
         const section = document.getElementById('notesSection');
-        section.style.display = 'block';
-        initializeAllNotes();
-        renderNotesGrid();
-        toast("Smart pencil marks generated.");
+        const isVisible = section.style.display === 'block';
+        section.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+            initializeAllNotes();
+            renderNotesGrid();
+            toast("Smart pencil marks generated.");
+        }
     }
 
     function initializeAllNotes() {
@@ -488,6 +540,7 @@
                             if (currentBoard[r][c] !== 0) return;
                             notesBoard[r][c][noteVal - 1] = !notesBoard[r][c][noteVal - 1];
                             div.innerText = notesBoard[r][c][noteVal - 1] ? noteVal : '';
+                            saveGameState();
                         };
                         if (subC === 2) {
                             div.style.borderRight = "1px solid #444";
