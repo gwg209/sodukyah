@@ -234,7 +234,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.5
+    SUDOKYAH v16.0.6
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -402,6 +402,7 @@
 
         updateNotesAfterPlacement(r, c, val);
         saveGameState();
+        updateUI();
     }
 
     function toast(msg) {
@@ -585,14 +586,7 @@
             const val = currentBoard[r][c];
         
             input.value = val === 0 ? '' : val;
-            input.classList.remove('hint-cell', 'user-val', 'error', 'correct', 'empty-highlight', 'hint-provided');
-            if (val !== 0) {
-                if (hintMask[r][c]) {
-                    input.classList.add('hint-cell');
-                } else {
-                    input.classList.add('user-val');
-                }
-            }
+
             const notesGrid = document.getElementById(`notes-${r}-${c}`);
             if (notesGrid) {
                 const noteDivs = notesGrid.querySelectorAll('.mini-note');
@@ -713,7 +707,6 @@
                 notesBoard[row][col][val - 1] = false;
             }
         }
-        if (document.getElementById('notesSection').style.display === 'block') updateUI();
     }
 
     initUI();
