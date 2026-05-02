@@ -12,7 +12,7 @@
             --bg-color: #f3f3f3;
             --header-bg: #222222;
             --notes-bg: #444444;
-            --cell-size: 43px;
+            --cell-size: min(43px, 10vw); /* Shrinks on small screens */
             --border-thick: 3px solid black;
             --border-thin: 1px solid #999;
         }
@@ -158,12 +158,48 @@
             justify-content: center; 
             box-sizing: border-box;
         }
+
+        .cell.no-solution { color: #ff0000 !important; font-weight: bold; }
+
+        /* Toggle Switch Style for the Menu */
+        .menu-item.toggle-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px; width: 14px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #2196F3; }
+        input:checked + .slider:before { transform: translateX(14px); }
+        
     </style>
 </head>
 <body>
 
 <div class="header">
-    SUDOKYAH v15.40
+    SUDOKYAH v16.0.1
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -175,6 +211,13 @@
             
             <div class="menu-group-label">Tools</div>
             <div class="menu-item" onclick="toggleNotes()">Show Notes</div>
+            <div class="menu-item toggle-item">
+                Live Errors 
+                <label class="switch">
+                    <input type="checkbox" id="errorToggle" onchange="saveGameState(); updateUI();">
+                    <span class="slider"></span>
+                </label>
+            </div>
             <div class="menu-item" onclick="giveHint()">Give a Hint</div>
             <div class="menu-item" onclick="analyzeBoardSolutions()">Check Puzzle</div>
             <div class="menu-item" onclick="solveSudoku()">Solve Puzzle</div>
@@ -209,32 +252,6 @@
     const gridEl = document.getElementById('grid');
     const menuBtn = document.getElementById('menuBtn');
     const menuContent = document.getElementById('menuContent');
-
-    // Persistence Logic
-    function saveGameState() {
-        const state = {
-            currentBoard,
-            hintMask,
-            notesBoard
-        };
-        localStorage.setItem('sudokyah_state', JSON.stringify(state));
-    }
-
-    function loadGameState() {
-        const saved = localStorage.getItem('sudokyah_state');
-        if (saved) {
-            const state = JSON.parse(saved);
-            currentBoard = state.currentBoard;
-            hintMask = state.hintMask;
-            notesBoard = state.notesBoard || notesBoard;
-            updateUI();
-            if (document.getElementById('notesSection').style.display === 'block') {
-                renderNotesGrid();
-            }
-            return true;
-        }
-        return false;
-    }
 
     // Toggle Menu on Click
     menuBtn.addEventListener('click', (e) => {
@@ -271,27 +288,70 @@
         }
     }
 
-    function handleInput(e, r, c) {
-        const input = e.target;
-        if (hintMask[r][c]) {
-            input.value = currentBoard[r][c];
-            alert("This cell is an original hint and cannot be changed.");
-            return;
+function saveGameState() {
+    const state = {
+        currentBoard,
+        hintMask,
+        notesBoard,
+        showErrors: document.getElementById('errorToggle').checked // Save toggle state
+    };
+    localStorage.setItem('sudokyah_state', JSON.stringify(state));
+}
+
+function loadGameState() {
+    const saved = localStorage.getItem('sudokyah_state');
+    if (saved) {
+        const state = JSON.parse(saved);
+        currentBoard = state.currentBoard;
+        hintMask = state.hintMask;
+        notesBoard = state.notesBoard || notesBoard;
+        document.getElementById('errorToggle').checked = state.showErrors || false;
+        updateUI();
+        if (document.getElementById('notesSection').style.display === 'block') {
+            renderNotesGrid();
         }
-        const val = parseInt(input.value);
-        if (isNaN(val) || val < 1 || val > 9) {
-            input.value = '';
-            currentBoard[r][c] = 0;
-            input.classList.remove('error', 'correct', 'empty-highlight', 'user-val');
-            saveGameState();
-            return;
-        }
-        currentBoard[r][c] = val;
-        input.classList.remove('error', 'correct', 'empty-highlight');
-        input.classList.add('user-val');
-        updateNotesAfterPlacement(r, c, val);
-        saveGameState(); // Save on every move
+        return true;
     }
+    return false;
+}
+
+function handleInput(e, r, c) {
+    const input = e.target;
+    if (hintMask[r][c]) {
+        input.value = currentBoard[r][c];
+        return;
+    }
+
+    const val = parseInt(input.value);
+    const showErrorEnabled = document.getElementById('errorToggle').checked;
+
+    // Reset classes
+    input.classList.remove('error', 'no-solution', 'correct', 'empty-highlight', 'user-val');
+
+    if (isNaN(val) || val < 1 || val > 9) {
+        input.value = '';
+        currentBoard[r][c] = 0;
+        saveGameState();
+        return;
+    }
+
+    currentBoard[r][c] = val;
+    input.classList.add('user-val');
+
+    if (showErrorEnabled) {
+        // 1. Check for immediate duplicates (Basic Sudoku Rules)
+        if (!isValidPlacement(currentBoard, r, c, val)) {
+            input.classList.add('error');
+        } 
+        // 2. Check if this move makes the puzzle unsolvable
+        else if (countSolutions(currentBoard) === 0) {
+            input.classList.add('no-solution');
+        }
+    }
+
+    updateNotesAfterPlacement(r, c, val);
+    saveGameState();
+}
 
     function toast(msg) {
         const t = document.getElementById('toast');
