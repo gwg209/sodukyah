@@ -12,7 +12,7 @@
             --bg-color: #f3f3f3;
             --header-bg: #222222;
             --notes-bg: #444444;
-            --cell-size: 43px;
+            --cell-size: min(43px, 10vw); /* Shrinks on small screens */
             --border-thick: 3px solid black;
             --border-thin: 1px solid #999;
         }
@@ -199,7 +199,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0
+    SUDOKYAH v16.0.1
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -214,7 +214,7 @@
             <div class="menu-item toggle-item">
                 Show Errors 
                 <label class="switch">
-                    <input type="checkbox" id="errorToggle" onchange="saveGameState()">
+                    <input type="checkbox" id="errorToggle" onchange="saveGameState(); updateUI();">
                     <span class="slider"></span>
                 </label>
             </div>
