@@ -2,432 +2,634 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sudokyah Web Edition</title>
+    <title>SUDOKYAH - Web Edition</title>
     <style>
         :root {
-            --cell-size: min(45px, 10vw);
-            --border-thick: 2px solid #333;
-            --border-thin: 1px solid #ccc;
-            --bg-color: #fdfdfd;
-            --accent-color: #007bff;
-            --error-color: #ff4d4d;
-            --no-sol-color: #ffcccc;
+            --bg-color: #f3f3f3;
+            --header-bg: #222222;
+            --notes-bg: #444444;
+            --cell-size: min(43px, 10vw);
+            --border-thick: 3px solid black;
+            --border-thin: 1px solid #999;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #f0f2f5;
-            margin: 0;
             padding: 20px;
         }
 
-        /* Hamburger Menu */
-        #menu-container {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            z-index: 100;
+        .header {
+            background: var(--header-bg);
+            color: white;
+            width: 400px;
+            padding: 10px 0;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        #menu-toggle {
-            font-size: 24px;
-            background: none;
-            border: none;
-            cursor: pointer;
-        }
-
-        #side-menu {
+        .menu-container {
             position: absolute;
-            top: 40px;
-            left: 0;
-            background: white;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            padding: 15px;
-            border-radius: 8px;
-            display: none;
-            width: 200px;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.5rem;
+            cursor: pointer;
+            z-index: 2000;
+            padding: 5px 10px;
         }
 
-        #side-menu.active { display: block; }
+        .menu-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background-color: white;
+            min-width: 180px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            text-align: left;
+            margin-top: 5px;
+        }
 
-        .menu-group { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .menu-group:last-child { border: none; }
-        .menu-label { font-weight: bold; font-size: 0.8em; color: #666; text-transform: uppercase; display: block; margin-bottom: 8px; }
+        .menu-content.show { display: block; }
 
-        /* Sudoku Grid */
-        #sudoku-board {
+        .menu-content .menu-item {
+            color: #333;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            font-size: 14px;
+            font-weight: normal;
+            border-bottom: 1px solid #eee;
+        }
+
+        .menu-content .menu-item:active { background-color: #ddd; }
+
+        .menu-group-label {
+            background: #eee;
+            padding: 6px 16px;
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sudoku-grid {
             display: grid;
             grid-template-columns: repeat(9, var(--cell-size));
             grid-template-rows: repeat(9, var(--cell-size));
             border: var(--border-thick);
             background-color: white;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
         }
 
-        .cell-container {
-            position: relative;
+        .cell {
             width: var(--cell-size);
             height: var(--cell-size);
-            border: var(--border-thin);
             box-sizing: border-box;
-        }
-
-        /* 3x3 Grid Borders */
-        .cell-container:nth-child(3n) { border-right: var(--border-thick); }
-        .cell-container:nth-child(9n) { border-right: var(--border-thin); }
-        .cell-container:nth-child(n+19):nth-child(-n+27),
-        .cell-container:nth-child(n+46):nth-child(-n+54) { border-bottom: var(--border-thick); }
-
-        .sudoku-input {
-            width: 100%;
-            height: 100%;
-            border: none;
+            border: var(--border-thin);
             text-align: center;
             font-size: 1.2rem;
-            background: transparent;
             outline: none;
-            color: var(--accent-color);
-            z-index: 2;
-            position: relative;
+            -webkit-appearance: none;
+            border-radius: 0;
         }
 
-        .sudoku-input:disabled { color: #333; font-weight: bold; background: #f9f9f9; }
+        .cell:nth-child(3n) { border-right: var(--border-thick); }
+        .cell:nth-child(9n) { border-right: var(--border-thick); }
+        .cell:nth-child(n+19):nth-child(-n+27),
+        .cell:nth-child(n+46):nth-child(-n+54) { border-bottom: var(--border-thick); }
 
-        /* Notes Layer */
-        .notes-grid {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(3, 1fr);
-            font-size: 9px;
-            color: #888;
-            pointer-events: none;
-            padding: 2px;
-            box-sizing: border-box;
-            line-height: 1;
-        }
+        .cell.hint-cell { font-weight: bold; color: black !important; background-color: #eee; }
+        .cell.user-val { color: #1155cc; }
+        .cell.error { background-color: #ff9999; }
+        .cell.correct { background-color: #99ff99; }
+        .cell.empty-highlight { background-color: #ffff99; }
+        .cell.hint-provided { color: #1155cc; }
 
-        .hide-notes .notes-grid { visibility: hidden; }
-
-        /* States */
-        .error { color: var(--error-color) !important; }
-        .no-solution { background-color: var(--no-sol-color) !important; }
-
-        button.main-btn {
-            margin-top: 20px;
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            background: #333;
+            color: #fff;
             padding: 10px 20px;
-            background: var(--accent-color);
-            color: white;
-            border: none;
             border-radius: 5px;
-            cursor: pointer;
+            display: none;
+            z-index: 1000;
         }
+
+        .notes-container { margin-top: 30px; display: none; }
+        .notes-header { background: var(--notes-bg); color: white; text-align: center; padding: 5px; font-weight: bold; }
+        .notes-grid { 
+            display: grid; 
+            grid-template-columns: repeat(27, 15px); 
+            grid-template-rows: repeat(27, 15px); 
+            border: var(--border-thick); 
+            background: #fafafa; 
+            font-size: 9px; 
+            color: #444; 
+            margin: 0 auto;
+        }
+
+        .note-cell { 
+            border: 0.1px dotted #ddd; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-sizing: border-box;
+        }
+
+        .cell.no-solution { color: #ff0000 !important; font-weight: bold; }
+
+        .menu-item.toggle-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px; width: 14px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #2196F3; }
+        input:checked + .slider:before { transform: translateX(14px); }
+        
     </style>
 </head>
 <body>
 
-    <div id="menu-container">
-        <button id="menu-toggle" onclick="toggleMenu()">☰</button>
-        <div id="side-menu">
-            <div class="menu-group">
-                <span class="menu-label">Settings</span>
-                <label><input type="checkbox" id="errorToggle" onchange="updateUI()"> Show Errors</label><br>
-                <label><input type="checkbox" id="notesToggle" onchange="applyNotesToggle()"> Show Notes</label>
+<div class="header">
+    SUDOKYAH v16.0.3
+    <div class="menu-container" id="menuBtn">
+        ☰
+        <div class="menu-content" id="menuContent">
+            <div class="menu-group-label">New Game</div>
+            <div class="menu-item" onclick="createSudokuByDifficulty(45, 'Beginner')">Beginner</div>
+            <div class="menu-item" onclick="createSudokuByDifficulty(35, 'Medium')">Medium</div>
+            <div class="menu-item" onclick="createSudokuByDifficulty(25, 'Advanced')">Advanced</div>
+            <div class="menu-item" onclick="createSudokuByDifficulty(19, 'Kyah')">Kyah</div>
+            
+            <div class="menu-group-label">Tools</div>
+            <div class="menu-item toggle-item">
+                Show Notes 
+                <label class="switch">
+                    <input type="checkbox" id="notesToggle" onchange="toggleNotes()">
+                    <span class="slider"></span>
+                </label>
             </div>
-            <div class="menu-group">
-                <span class="menu-label">Difficulty</span>
-                <select id="difficulty">
-                    <option value="easy">Easy (36)</option>
-                    <option value="medium">Medium (28)</option>
-                    <option value="hard">Hard (22)</option>
-                    <option value="kyah">Kyah (19)</option>
-                </select>
+            <div class="menu-item toggle-item">
+                Live Errors 
+                <label class="switch">
+                    <input type="checkbox" id="errorToggle" onchange="saveGameState(); updateUI();">
+                    <span class="slider"></span>
+                </label>
             </div>
-            <button onclick="newGame()" style="width:100%">New Game</button>
+            <div class="menu-item" onclick="giveHint()">Give a Hint</div>
+            <div class="menu-item" onclick="analyzeBoardSolutions()">Check Puzzle</div>
+            <div class="menu-item" onclick="solveSudoku()">Solve Puzzle</div>
+            <div class="menu-item" onclick="scoreSudokuPuzzle()">Score Puzzle</div>
+            
+            <div class="menu-group-label">Clear</div>
+            <div class="menu-item" onclick="clearAnswers()" style="color: #cc0000;">Answers</div>
+            <div class="menu-item" onclick="clearNotes()" style="color: #cc0000;">Notes</div>
+            <div class="menu-item" onclick="resetFullBoard()" style="color: #cc0000;">Board</div>
         </div>
     </div>
+</div>
 
-    <h1>Sudokyah 16.0.2</h1>
-    <div id="sudoku-board"></div>
-    <button class="main-btn" onclick="newGame()">New Game</button>
+<div id="grid" class="sudoku-grid"></div>
 
-    <script>
-        let solution = [];
-        let initialBoard = [];
-        let currentNotes = Array.from({length: 81}, () => []);
+<div id="notesSection" class="notes-container">
+    <div class="notes-header">NOTES (Pencil Marks)</div>
+    <div id="notesGrid" class="notes-grid"></div>
+</div>
 
-        // --- Core Logic ---
-        function isValid(board, r, c, val) {
-            for (let i = 0; i < 9; i++) {
-                if (board[r][i] === val || board[i][c] === val) return false;
-            }
-            let startR = Math.floor(r / 3) * 3;
-            let startC = Math.floor(c / 3) * 3;
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 3; j++) {
-                    if (board[startR + i][startC + j] === val) return false;
-                }
-            }
-            return true;
+<div id="toast"></div>
+
+<script>
+    let currentBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
+    let hintMask = Array.from({ length: 9 }, () => Array(9).fill(false));
+    let lastFocused = null;
+
+    let notesBoard = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => Array(9).fill(false))
+    );
+
+    const gridEl = document.getElementById('grid');
+    const menuBtn = document.getElementById('menuBtn');
+    const menuContent = document.getElementById('menuContent');
+
+    menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuContent.classList.toggle('show');
+    });
+
+    window.addEventListener('click', () => {
+        if (menuContent.classList.contains('show')) {
+            menuContent.classList.remove('show');
         }
+    });
 
-        function solve(board) {
-            for (let r = 0; r < 9; r++) {
-                for (let c = 0; c < 9; c++) {
-                    if (board[r][c] === 0) {
-                        let nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
-                        for (let val of nums) {
-                            if (isValid(board, r, c, val)) {
-                                board[r][c] = val;
-                                if (solve(board)) return true;
-                                board[r][c] = 0;
-                            }
-                        }
-                        return false;
-                    }
-                }
-            }
-            return true;
-        }
-
-        function countSolutions(board, count = 0) {
-            for (let r = 0; r < 9; r++) {
-                for (let c = 0; c < 9; c++) {
-                    if (board[r][c] === 0) {
-                        for (let val = 1; val <= 9; val++) {
-                            if (isValid(board, r, c, val)) {
-                                board[r][c] = val;
-                                count = countSolutions(board, count);
-                                board[r][c] = 0;
-                                if (count > 1) return count;
-                            }
-                        }
-                        return count;
-                    }
-                }
-            }
-            return count + 1;
-        }
-
-        // --- UI & State ---
-        function initBoard() {
-            const container = document.getElementById('sudoku-board');
-            container.innerHTML = '';
-            for (let i = 0; i < 81; i++) {
-                const r = Math.floor(i / 9);
-                const c = i % 9;
-                
-                const cellWrap = document.createElement('div');
-                cellWrap.className = 'cell-container';
-                
-                const notesGrid = document.createElement('div');
-                notesGrid.className = 'notes-grid';
-                for(let n = 1; n <= 9; n++) {
-                    const span = document.createElement('span');
-                    span.id = `note-${i}-${n}`;
-                    notesGrid.appendChild(span);
-                }
-
+    function initUI() {
+        gridEl.innerHTML = '';
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.inputMode = 'numeric';
-                input.className = 'sudoku-input';
                 input.maxLength = 1;
-                input.dataset.idx = i;
-                
-                input.oninput = (e) => handleInput(e.target);
-                input.onkeydown = (e) => handleKeyDown(e);
-
-                cellWrap.appendChild(notesGrid);
-                cellWrap.appendChild(input);
-                container.appendChild(cellWrap);
+                input.className = 'cell';
+                input.dataset.row = r;
+                input.dataset.col = c;
+                input.oninput = (e) => handleInput(e, r, c);
+                input.onfocus = () => { lastFocused = {r, c}; };
+                gridEl.appendChild(input);
             }
         }
-
-        function handleInput(el) {
-            const val = parseInt(el.value);
-            if (isNaN(val) || val < 1 || val > 9) el.value = '';
-            
-            // Clear notes for this cell if a value is entered
-            if (el.value !== '') {
-                const idx = el.dataset.idx;
-                currentNotes[idx] = [];
-                renderNotes(idx);
-            }
-            
-            saveState();
-            updateUI();
+        if (!loadGameState()) {
+            createSudokuByDifficulty(45, 'Beginner');
         }
+    }
 
-        function handleKeyDown(e) {
-            const idx = parseInt(e.target.dataset.idx);
-            // Shift + Number for Notes
-            if (e.shiftKey && e.key >= '1' && e.key <= '9') {
-                e.preventDefault();
-                const num = parseInt(e.key);
-                if (currentNotes[idx].includes(num)) {
-                    currentNotes[idx] = currentNotes[idx].filter(n => n !== num);
-                } else {
-                    currentNotes[idx].push(num);
+function saveGameState() {
+    const state = {
+        currentBoard,
+        hintMask,
+        notesBoard,
+        showErrors: document.getElementById('errorToggle').checked,
+        showNotes: document.getElementById('notesToggle').checked
+    };
+    localStorage.setItem('sudokyah_state', JSON.stringify(state));
+}
+
+function loadGameState() {
+    const saved = localStorage.getItem('sudokyah_state');
+    if (saved) {
+        const state = JSON.parse(saved);
+        currentBoard = state.currentBoard;
+        hintMask = state.hintMask;
+        notesBoard = state.notesBoard || notesBoard;
+        document.getElementById('errorToggle').checked = state.showErrors || false;
+        
+        // Sync Notes Toggle
+        const notesToggle = document.getElementById('notesToggle');
+        notesToggle.checked = state.showNotes || false;
+        document.getElementById('notesSection').style.display = notesToggle.checked ? 'block' : 'none';
+        
+        updateUI();
+        if (notesToggle.checked) renderNotesGrid();
+        return true;
+    }
+    return false;
+}
+
+function handleInput(e, r, c) {
+    const input = e.target;
+    if (hintMask[r][c]) {
+        input.value = currentBoard[r][c];
+        return;
+    }
+
+    const val = parseInt(input.value);
+    const showErrorEnabled = document.getElementById('errorToggle').checked;
+
+    input.classList.remove('error', 'no-solution', 'correct', 'empty-highlight', 'user-val');
+
+    if (isNaN(val) || val < 1 || val > 9) {
+        input.value = '';
+        currentBoard[r][c] = 0;
+        saveGameState();
+        return;
+    }
+
+    currentBoard[r][c] = val;
+    input.classList.add('user-val');
+
+    if (showErrorEnabled) {
+        if (!isValidPlacement(currentBoard, r, c, val)) {
+            input.classList.add('error');
+        } else if (countSolutions(currentBoard) === 0) {
+            input.classList.add('no-solution');
+        }
+    }
+
+    updateNotesAfterPlacement(r, c, val);
+    saveGameState();
+}
+
+    function toast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.display = 'block';
+        setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    function isValidPlacement(board, r, c, num) {
+        for (let i = 0; i < 9; i++) {
+            if (i !== c && board[r][i] === num) return false;
+            if (i !== r && board[i][c] === num) return false;
+            const sRow = Math.floor(r / 3) * 3, sCol = Math.floor(c / 3) * 3;
+            const curR = sRow + Math.floor(i / 3), curC = sCol + (i % 3);
+            if ((curR !== r || curC !== c) && board[curR][curC] === num) return false;
+        }
+        return true;
+    }
+
+    function analyzeBoardSolutions() {
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                const val = currentBoard[r][c];
+                if (val !== 0 && !isValidPlacement(currentBoard, r, c, val)) {
+                    alert(`Invalid: Conflict found at Row ${r+1}, Col ${c+1}.`);
+                    return;
                 }
-                renderNotes(idx);
-                saveState();
-                return;
-            }
-
-            // Arrow Key Navigation
-            let newIdx = idx;
-            if (e.key === "ArrowUp") newIdx -= 9;
-            if (e.key === "ArrowDown") newIdx += 9;
-            if (e.key === "ArrowLeft") newIdx -= 1;
-            if (e.key === "ArrowRight") newIdx += 1;
-            
-            const next = document.querySelector(`input[data-idx="${newIdx}"]`);
-            if (next) next.focus();
-        }
-
-        function renderNotes(idx) {
-            for (let n = 1; n <= 9; n++) {
-                const span = document.getElementById(`note-${idx}-${n}`);
-                span.textContent = currentNotes[idx].includes(n) ? n : '';
             }
         }
+        const count = countSolutions(currentBoard);
+        if (count === 0) alert("No Solutions: This configuration cannot be completed.");
+        else if (count === 1) alert("Valid: This puzzle has exactly one unique solution.");
+        else alert(`Ambiguous: This puzzle has ${count > 1 ? 'multiple' : count} solutions.`);
+    }
 
-        function applyNotesToggle() {
-            const board = document.getElementById('sudoku-board');
-            const show = document.getElementById('notesToggle').checked;
-            board.classList.toggle('hide-notes', !show);
-            localStorage.setItem('sudokyah_showNotes', show);
-        }
-
-        function updateUI() {
-            const showErrors = document.getElementById('errorToggle').checked;
-            const inputs = document.querySelectorAll('.sudoku-input');
-            const currentFlat = Array.from(inputs).map(i => parseInt(i.value) || 0);
-
-            inputs.forEach((input, i) => {
-                input.classList.remove('error', 'no-solution');
-                const val = parseInt(input.value);
-                if (!val) return;
-
-                if (showErrors) {
-                    const r = Math.floor(i / 9);
-                    const c = i % 9;
-                    // Check duplicate
-                    let isDup = false;
-                    currentFlat.forEach((v, otherIdx) => {
-                        if (i === otherIdx || v !== val) return;
-                        const or = Math.floor(otherIdx / 9);
-                        const oc = otherIdx % 9;
-                        if (r === or || c === oc || (Math.floor(r/3)===Math.floor(or/3) && Math.floor(c/3)===Math.floor(oc/3))) {
-                            isDup = true;
+    function fillBoardRandomly(board) {
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (board[r][c] === 0) {
+                    let nums = [1, 2, 3, 4, 5, 6, 7, 8, 9].sort(() => Math.random() - 0.5);
+                    for (let n of nums) {
+                        if (isValidPlacement(board, r, c, n)) {
+                            board[r][c] = n;
+                            if (fillBoardRandomly(board)) return true;
+                            board[r][c] = 0;
                         }
-                    });
-                    if (isDup) input.classList.add('error');
-                }
-            });
-        }
-
-        function newGame() {
-            const diffMap = { easy: 36, medium: 28, hard: 22, kyah: 19 };
-            const clues = diffMap[document.getElementById('difficulty').value];
-            
-            // Generate full solution
-            let board = Array.from({length: 9}, () => Array(9).fill(0));
-            solve(board);
-            solution = board.flat();
-
-            // Poke holes
-            let quiz = [...solution];
-            let indices = Array.from({length: 81}, (_, i) => i).sort(() => Math.random() - 0.5);
-            let removed = 0;
-            let targetHoles = 81 - clues;
-
-            for (let idx of indices) {
-                if (removed >= targetHoles) break;
-                let temp = quiz[idx];
-                quiz[idx] = 0;
-                
-                // Ensure unique solution
-                let testBoard = [];
-                for(let i=0; i<9; i++) testBoard.push(quiz.slice(i*9, i*9+9));
-                
-                if (countSolutions(testBoard) === 1) {
-                    removed++;
-                } else {
-                    quiz[idx] = temp;
+                    }
+                    return false;
                 }
             }
+        }
+        return true;
+    }
 
-            initialBoard = quiz;
-            currentNotes = Array.from({length: 81}, () => []);
-            
-            const inputs = document.querySelectorAll('.sudoku-input');
-            inputs.forEach((input, i) => {
-                input.value = quiz[i] || '';
-                input.disabled = quiz[i] !== 0;
-                renderNotes(i);
-            });
-            
-            saveState();
+    function countSolutions(board) {
+        let solutions = 0;
+        function solveInternal(b) {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (b[r][c] === 0) {
+                        for (let n = 1; n <= 9; n++) {
+                            if (isValidPlacement(b, r, c, n)) {
+                                b[r][c] = n;
+                                solveInternal(b);
+                                b[r][c] = 0;
+                                if (solutions > 1) return;
+                            }
+                        }
+                        return;
+                    }
+                }
+            }
+            solutions++;
+        }
+        solveInternal(JSON.parse(JSON.stringify(board)));
+        return solutions;
+    }
+
+    function pokeHoles(board, targetClues) {
+        let puzzle = board.map(row => [...row]);
+        let cluesFound = 81;
+        let coords = Array.from({length: 81}, (_, i) => i).sort(() => Math.random() - 0.5);
+        for (let i = 0; i < 81; i++) {
+            if (cluesFound <= targetClues) break;
+            let r = Math.floor(coords[i] / 9), c = coords[i] % 9;
+            let backup = puzzle[r][c];
+            puzzle[r][c] = 0;
+            if (countSolutions(puzzle) !== 1) puzzle[r][c] = backup;
+            else cluesFound--;
+        }
+        return puzzle;
+    }
+
+    function createSudokuByDifficulty(clues, level) {
+        toast(`Generating ${level} puzzle...`);
+        resetFullBoard();
+        let fullBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
+        fillBoardRandomly(fullBoard);
+        currentBoard = pokeHoles(fullBoard, clues);
+        updateUI(true);
+        saveGameState();
+        toast(`${level} ready!`);
+    }
+
+    function scoreSudokuPuzzle() {
+        const inputs = document.querySelectorAll('.cell');
+        let errors = 0, empty = 0;
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                const val = currentBoard[r][c];
+                const input = inputs[r * 9 + c];
+                input.classList.remove('error', 'correct', 'empty-highlight');
+                if (val === 0) {
+                    empty++;
+                    input.classList.add('empty-highlight');
+                } else {
+                    if (isValidPlacement(currentBoard, r, c, val)) {
+                        input.classList.add('correct');
+                    } else {
+                        errors++;
+                        input.classList.add('error');
+                    }
+                }
+            }
+        }
+        const score = (((81 - empty - errors) / 81) * 100).toFixed(1);
+        alert(`Errors: ${errors}\nEmpty: ${empty}\nCompletion Score: ${score}%`);
+    }
+
+    function solveSudoku() {
+        let solveCopy = JSON.parse(JSON.stringify(currentBoard));
+        if (fillBoardRandomly(solveCopy)) {
+            currentBoard = solveCopy;
             updateUI();
-            toggleMenu(false);
+            saveGameState();
+            toast("Solved!");
+        } else {
+            alert("No solution possible.");
         }
+    }
 
-        function saveState() {
-            const values = Array.from(document.querySelectorAll('.sudoku-input')).map(i => i.value);
-            const data = {
-                values,
-                initialBoard,
-                currentNotes,
-                difficulty: document.getElementById('difficulty').value
-            };
-            localStorage.setItem('sudokyah_save', JSON.stringify(data));
-        }
-
-        function loadState() {
-            const saved = localStorage.getItem('sudokyah_save');
-            if (!saved) return newGame();
-            
-            const data = JSON.parse(saved);
-            initialBoard = data.initialBoard;
-            currentNotes = data.currentNotes || Array.from({length: 81}, () => []);
-            document.getElementById('difficulty').value = data.difficulty;
-            
-            const inputs = document.querySelectorAll('.sudoku-input');
-            inputs.forEach((input, i) => {
-                input.value = data.values[i];
-                input.disabled = initialBoard[i] !== 0;
-                renderNotes(i);
-            });
-
-            const showNotes = localStorage.getItem('sudokyah_showNotes') === 'true';
-            document.getElementById('notesToggle').checked = showNotes;
-            applyNotesToggle();
+    function giveHint() {
+        if (!lastFocused) { alert("Please click on a cell first."); return; }
+        const {r, c} = lastFocused;
+        if (hintMask[r][c] || currentBoard[r][c] !== 0) return;
+        let solveCopy = JSON.parse(JSON.stringify(currentBoard));
+        if (fillBoardRandomly(solveCopy)) {
+            currentBoard[r][c] = solveCopy[r][c];
             updateUI();
+            document.querySelectorAll('.cell')[r * 9 + c].classList.add('hint-provided');
+            saveGameState();
+        } else {
+            alert("No solution possible with current entries.");
         }
+    }
 
-        function toggleMenu(force) {
-            const menu = document.getElementById('side-menu');
-            menu.classList.toggle('active', force);
-        }
-
-        // Initialize
-        initBoard();
-        loadState();
-
-        // Close menu on outside click
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('#menu-container')) toggleMenu(false);
+    function updateUI(isNewPuzzle = false) {
+        const inputs = document.querySelectorAll('.cell');
+        inputs.forEach(input => {
+            const r = parseInt(input.dataset.row);
+            const c = parseInt(input.dataset.col);
+            const val = currentBoard[r][c];
+            input.value = val === 0 ? '' : val;
+            input.classList.remove('hint-cell', 'user-val', 'error', 'correct', 'empty-highlight', 'hint-provided');
+            if (isNewPuzzle && val !== 0) hintMask[r][c] = true;
+            if (hintMask[r][c]) input.classList.add('hint-cell');
+            else if (val !== 0) input.classList.add('user-val');
         });
-    </script>
+    }
+
+    function clearAnswers() {
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (!hintMask[r][c]) currentBoard[r][c] = 0;
+            }
+        }
+        updateUI();
+        saveGameState();
+        toast("Answers cleared.");
+    }
+
+    function clearNotes() {
+        notesBoard = Array.from({ length: 9 }, () =>
+            Array.from({ length: 9 }, () => Array(9).fill(false))
+        );
+        document.getElementById('notesGrid').innerHTML = '';
+        document.getElementById('notesSection').style.display = 'none';
+        document.getElementById('notesToggle').checked = false;
+        saveGameState();
+    }
+
+    function resetFullBoard() {
+        currentBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
+        hintMask = Array.from({ length: 9 }, () => Array(9).fill(false));
+        lastFocused = null;
+        updateUI();
+        clearNotes();
+        localStorage.removeItem('sudokyah_state');
+    }
+
+    function toggleNotes() {
+        const checkbox = document.getElementById('notesToggle');
+        const section = document.getElementById('notesSection');
+        
+        if (checkbox.checked) {
+            section.style.display = 'block';
+            initializeAllNotes();
+            renderNotesGrid();
+            toast("Smart pencil marks generated.");
+        } else {
+            section.style.display = 'none';
+        }
+        saveGameState();
+    }
+
+    function initializeAllNotes() {
+        notesBoard = Array.from({ length: 9 }, () =>
+            Array.from({ length: 9 }, () => Array(9).fill(false))
+        );
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (currentBoard[r][c] === 0) {
+                    for (let n = 1; n <= 9; n++) {
+                        if (isValidPlacement(currentBoard, r, c, n)) {
+                            notesBoard[r][c][n - 1] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function renderNotesGrid() {
+        const notesGrid = document.getElementById('notesGrid');
+        notesGrid.innerHTML = '';
+        for (let r = 0; r < 9; r++) {
+            for (let subR = 0; subR < 3; subR++) {
+                for (let c = 0; c < 9; c++) {
+                    for (let subC = 0; subC < 3; subC++) {
+                        const noteVal = (subR * 3) + subC + 1;
+                        const div = document.createElement('div');
+                        div.className = 'note-cell';
+                        if (notesBoard[r][c][noteVal - 1]) div.innerText = noteVal;
+                        div.onclick = () => {
+                            if (currentBoard[r][c] !== 0) return;
+                            notesBoard[r][c][noteVal - 1] = !notesBoard[r][c][noteVal - 1];
+                            div.innerText = notesBoard[r][c][noteVal - 1] ? noteVal : '';
+                            saveGameState();
+                        };
+                        if (subC === 2) {
+                            div.style.borderRight = "1px solid #444";
+                            if ((c + 1) % 3 === 0) div.style.borderRight = "var(--border-thick)";
+                        }
+                        if (subR === 2) {
+                            div.style.borderBottom = "1px solid #444";
+                            if ((r + 1) % 3 === 0) div.style.borderBottom = "var(--border-thick)";
+                        }
+                        notesGrid.appendChild(div);
+                    }
+                }
+            }
+        }
+    }
+
+    function updateNotesAfterPlacement(r, c, val) {
+        if (!val) return;
+        notesBoard[r][c] = Array(9).fill(false);
+        for (let col = 0; col < 9; col++) notesBoard[r][col][val - 1] = false;
+        for (let row = 0; row < 9; row++) notesBoard[row][c][val - 1] = false;
+        const startRow = Math.floor(r / 3) * 3;
+        const startCol = Math.floor(c / 3) * 3;
+        for (let row = startRow; row < startRow + 3; row++) {
+            for (let col = startCol; col < startCol + 3; col++) {
+                notesBoard[row][col][val - 1] = false;
+            }
+        }
+        if (document.getElementById('notesSection').style.display === 'block') renderNotesGrid();
+    }
+
+    initUI();
+</script>
+
 </body>
 </html>
