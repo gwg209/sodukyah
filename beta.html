@@ -97,14 +97,6 @@
             background-color: white;
         }
 
-        .cell-container {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            position: relative;
-            box-sizing: border-box;
-            border: var(--border-thin);
-        }
-
         .cell-container.hint-cell { 
             background-color: #eee; 
         }
@@ -127,7 +119,7 @@
             outline: none;
         }
         
-        .cell.hint-cell { font-weight: bold; color: black !important; background-color: #eee !important; }
+        .cell.hint-cell { font-weight: bold; color: black !important; background-color: #eee; }
         .cell.user-val { color: #1155cc; }
         .cell.error { background-color: rgba(255, 153, 153, 0.6) !important;}
         .cell.correct { background-color: #99ff99; }
@@ -226,7 +218,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.9
+    SUDOKYAH v16.0.9.2
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
