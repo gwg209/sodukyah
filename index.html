@@ -11,7 +11,6 @@
         :root {
             --bg-color: #f3f3f3;
             --header-bg: #222222;
-            --notes-bg: #444444;
             --cell-size: min(43px, 10vw);
             --border-thick: 3px solid black;
             --border-thin: 1px solid #999;
@@ -109,14 +108,39 @@
             border-radius: 0;
         }
 
-        .cell:nth-child(3n) { border-right: var(--border-thick); }
-        .cell:nth-child(9n) { border-right: var(--border-thick); }
-        .cell:nth-child(n+19):nth-child(-n+27),
-        .cell:nth-child(n+46):nth-child(-n+54) { border-bottom: var(--border-thick); }
+        .cell-container {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            position: relative;
+            box-sizing: border-box;
+            border: var(--border-thin);
+        }
 
+        .cell-container.hint-cell { 
+            background-color: #eee; 
+        }
+
+        .cell-container:nth-child(3n) { border-right: var(--border-thick); }
+        .cell-container:nth-child(9n) { border-right: var(--border-thick); }
+        .cell-container:nth-child(n+19):nth-child(-n+27),
+        .cell-container:nth-child(n+46):nth-child(-n+54) { border-bottom: var(--border-thick); }
+
+        .cell {
+            width: 100%;
+            height: 100%;
+            background: transparent !important;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 2;
+            text-align: center;
+            font-size: 1.2rem;
+            border: none;
+            outline: none;
+        }
+        
         .cell.hint-cell { font-weight: bold; color: black !important; background-color: #eee; }
         .cell.user-val { color: #1155cc; }
-        .cell.error { background-color: #ff9999; }
+        .cell.error { background-color: rgba(255, 153, 153, 0.6) !important;}
         .cell.correct { background-color: #99ff99; }
         .cell.empty-highlight { background-color: #ffff99; }
         .cell.hint-provided { color: #1155cc; }
@@ -132,25 +156,25 @@
             z-index: 1000;
         }
 
-        .notes-container { margin-top: 30px; display: none; }
-        .notes-header { background: var(--notes-bg); color: white; text-align: center; padding: 5px; font-weight: bold; }
-        .notes-grid { 
-            display: grid; 
-            grid-template-columns: repeat(27, 15px); 
-            grid-template-rows: repeat(27, 15px); 
-            border: var(--border-thick); 
-            background: #fafafa; 
-            font-size: 9px; 
-            color: #444; 
-            margin: 0 auto;
+        .mini-notes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 1;
+            pointer-events: none; /* Click through to the input */
+            padding: 2px;
+            box-sizing: border-box;
         }
 
-        .note-cell { 
-            border: 0.1px dotted #ddd; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            box-sizing: border-box;
+        .mini-note {
+            font-size: 9px;
+            color: #888;
+            line-height: 1;
+            text-align: center;
         }
 
         .cell.no-solution { color: #ff0000 !important; font-weight: bold; }
@@ -192,7 +216,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.3
+    SUDOKYAH v16
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -217,14 +241,11 @@
                     <span class="slider"></span>
                 </label>
             </div>
-            <div class="menu-item" onclick="giveHint()">Give a Hint</div>
-            <div class="menu-item" onclick="analyzeBoardSolutions()">Check Puzzle</div>
             <div class="menu-item" onclick="solveSudoku()">Solve Puzzle</div>
             <div class="menu-item" onclick="scoreSudokuPuzzle()">Score Puzzle</div>
             
             <div class="menu-group-label">Clear</div>
             <div class="menu-item" onclick="clearAnswers()" style="color: #cc0000;">Answers</div>
-            <div class="menu-item" onclick="clearNotes()" style="color: #cc0000;">Notes</div>
             <div class="menu-item" onclick="resetFullBoard()" style="color: #cc0000;">Board</div>
         </div>
     </div>
@@ -232,18 +253,11 @@
 
 <div id="grid" class="sudoku-grid"></div>
 
-<div id="notesSection" class="notes-container">
-    <div class="notes-header">NOTES (Pencil Marks)</div>
-    <div id="notesGrid" class="notes-grid"></div>
-</div>
-
 <div id="toast"></div>
 
 <script>
     let currentBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
     let hintMask = Array.from({ length: 9 }, () => Array(9).fill(false));
-    let lastFocused = null;
-
     let notesBoard = Array.from({ length: 9 }, () =>
       Array.from({ length: 9 }, () => Array(9).fill(false))
     );
@@ -267,6 +281,20 @@
         gridEl.innerHTML = '';
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
+                const container = document.createElement('div');
+                container.className = 'cell-container';
+
+                // Create Notes Grid
+                const notesGrid = document.createElement('div');
+                notesGrid.className = 'mini-notes-grid';
+                notesGrid.id = `notes-${r}-${c}`;
+                for (let i = 1; i <= 9; i++) {
+                    const note = document.createElement('div');
+                    note.className = 'mini-note';
+                    notesGrid.appendChild(note);
+                }
+
+                // Create Main Input
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.inputMode = 'numeric';
@@ -275,8 +303,10 @@
                 input.dataset.row = r;
                 input.dataset.col = c;
                 input.oninput = (e) => handleInput(e, r, c);
-                input.onfocus = () => { lastFocused = {r, c}; };
-                gridEl.appendChild(input);
+
+                container.appendChild(notesGrid);
+                container.appendChild(input);
+                gridEl.appendChild(container);
             }
         }
         if (!loadGameState()) {
@@ -284,71 +314,77 @@
         }
     }
 
-function saveGameState() {
-    const state = {
-        currentBoard,
-        hintMask,
-        notesBoard,
-        showErrors: document.getElementById('errorToggle').checked,
-        showNotes: document.getElementById('notesToggle').checked
-    };
-    localStorage.setItem('sudokyah_state', JSON.stringify(state));
-}
+    function saveGameState() {
+        const state = {
+            currentBoard,
+            hintMask,
+            notesBoard,
+            showErrors: document.getElementById('errorToggle').checked,
+            showNotes: document.getElementById('notesToggle').checked
+        };
+        localStorage.setItem('sudokyah_state', JSON.stringify(state));
+    }
 
-function loadGameState() {
-    const saved = localStorage.getItem('sudokyah_state');
-    if (saved) {
-        const state = JSON.parse(saved);
-        currentBoard = state.currentBoard;
-        hintMask = state.hintMask;
-        notesBoard = state.notesBoard || notesBoard;
-        document.getElementById('errorToggle').checked = state.showErrors || false;
+    function loadGameState() {
+        const saved = localStorage.getItem('sudokyah_state');
+        if (!saved) return false;
+
+        try {
+            const state = JSON.parse(saved);
+            currentBoard = state.currentBoard;
+            hintMask = state.hintMask;
+            notesBoard = state.notesBoard || notesBoard;
+
+            // Restore Toggle States
+            const errorToggle = document.getElementById('errorToggle');
+            const notesToggle = document.getElementById('notesToggle');
         
-        // Sync Notes Toggle
-        const notesToggle = document.getElementById('notesToggle');
-        notesToggle.checked = state.showNotes || false;
-        document.getElementById('notesSection').style.display = notesToggle.checked ? 'block' : 'none';
-        
-        updateUI();
-        if (notesToggle.checked) renderNotesGrid();
-        return true;
-    }
-    return false;
-}
+            if (errorToggle) errorToggle.checked = state.showErrors || false;
+            if (notesToggle) notesToggle.checked = state.showNotes || false;
 
-function handleInput(e, r, c) {
-    const input = e.target;
-    if (hintMask[r][c]) {
-        input.value = currentBoard[r][c];
-        return;
-    }
-
-    const val = parseInt(input.value);
-    const showErrorEnabled = document.getElementById('errorToggle').checked;
-
-    input.classList.remove('error', 'no-solution', 'correct', 'empty-highlight', 'user-val');
-
-    if (isNaN(val) || val < 1 || val > 9) {
-        input.value = '';
-        currentBoard[r][c] = 0;
-        saveGameState();
-        return;
-    }
-
-    currentBoard[r][c] = val;
-    input.classList.add('user-val');
-
-    if (showErrorEnabled) {
-        if (!isValidPlacement(currentBoard, r, c, val)) {
-            input.classList.add('error');
-        } else if (countSolutions(currentBoard) === 0) {
-            input.classList.add('no-solution');
+            // Force the UI to draw what we just loaded
+            updateUI();
+            return true;
+        } catch (e) {
+            console.error("Failed to load game state:", e);
+            return false;
         }
     }
 
-    updateNotesAfterPlacement(r, c, val);
-    saveGameState();
-}
+    function handleInput(e, r, c) {
+        const input = e.target;
+        if (hintMask[r][c]) {
+            input.value = currentBoard[r][c];
+            return;
+        }
+
+        const val = parseInt(input.value);
+        const showErrorEnabled = document.getElementById('errorToggle').checked;
+
+        input.classList.remove('error', 'no-solution', 'correct', 'empty-highlight', 'user-val');
+
+        if (isNaN(val) || val < 1 || val > 9) {
+            input.value = '';
+            currentBoard[r][c] = 0;
+            saveGameState();
+            return;
+        }
+
+        currentBoard[r][c] = val;
+        input.classList.add('user-val');
+
+        if (showErrorEnabled) {
+            if (!isValidPlacement(currentBoard, r, c, val)) {
+                input.classList.add('error');
+            } else if (countSolutions(currentBoard) === 0) {
+                input.classList.add('no-solution');
+            }
+        }
+
+        updateNotesAfterPlacement(r, c, val);
+        saveGameState();
+        updateUI();
+    }
 
     function toast(msg) {
         const t = document.getElementById('toast');
@@ -366,22 +402,6 @@ function handleInput(e, r, c) {
             if ((curR !== r || curC !== c) && board[curR][curC] === num) return false;
         }
         return true;
-    }
-
-    function analyzeBoardSolutions() {
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                const val = currentBoard[r][c];
-                if (val !== 0 && !isValidPlacement(currentBoard, r, c, val)) {
-                    alert(`Invalid: Conflict found at Row ${r+1}, Col ${c+1}.`);
-                    return;
-                }
-            }
-        }
-        const count = countSolutions(currentBoard);
-        if (count === 0) alert("No Solutions: This configuration cannot be completed.");
-        else if (count === 1) alert("Valid: This puzzle has exactly one unique solution.");
-        else alert(`Ambiguous: This puzzle has ${count > 1 ? 'multiple' : count} solutions.`);
     }
 
     function fillBoardRandomly(board) {
@@ -444,11 +464,28 @@ function handleInput(e, r, c) {
 
     function createSudokuByDifficulty(clues, level) {
         toast(`Generating ${level} puzzle...`);
-        resetFullBoard();
+        resetFullBoard(); // This clears currentBoard and hintMask
+    
         let fullBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
         fillBoardRandomly(fullBoard);
+    
         currentBoard = pokeHoles(fullBoard, clues);
-        updateUI(true);
+    
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (currentBoard[r][c] !== 0) {
+                    hintMask[r][c] = true;
+                } else {
+                    hintMask[r][c] = false;
+                }
+            }
+        }
+    
+        if (document.getElementById('notesToggle').checked) {
+            initializeAllNotes();
+        }
+    
+        updateUI(); 
         saveGameState();
         toast(`${level} ready!`);
     }
@@ -490,35 +527,55 @@ function handleInput(e, r, c) {
         }
     }
 
-    function giveHint() {
-        if (!lastFocused) { alert("Please click on a cell first."); return; }
-        const {r, c} = lastFocused;
-        if (hintMask[r][c] || currentBoard[r][c] !== 0) return;
-        let solveCopy = JSON.parse(JSON.stringify(currentBoard));
-        if (fillBoardRandomly(solveCopy)) {
-            currentBoard[r][c] = solveCopy[r][c];
-            updateUI();
-            document.querySelectorAll('.cell')[r * 9 + c].classList.add('hint-provided');
-            saveGameState();
-        } else {
-            alert("No solution possible with current entries.");
-        }
-    }
-
-    function updateUI(isNewPuzzle = false) {
+    function updateUI() {
         const inputs = document.querySelectorAll('.cell');
+        const showNotes = document.getElementById('notesToggle').checked;
+        const showErrorEnabled = document.getElementById('errorToggle').checked;
+
         inputs.forEach(input => {
             const r = parseInt(input.dataset.row);
             const c = parseInt(input.dataset.col);
             const val = currentBoard[r][c];
-            input.value = val === 0 ? '' : val;
-            input.classList.remove('hint-cell', 'user-val', 'error', 'correct', 'empty-highlight', 'hint-provided');
-            if (isNewPuzzle && val !== 0) hintMask[r][c] = true;
-            if (hintMask[r][c]) input.classList.add('hint-cell');
-            else if (val !== 0) input.classList.add('user-val');
+            const container = input.parentElement; // Get the .cell-container
+
+            input.value = (val === 0) ? '' : val;
+
+            input.classList.remove('hint-cell', 'user-val', 'error', 'no-solution');
+            container.classList.remove('hint-cell'); // Backgrounds belong on the container
+
+            if (val !== 0) {
+                if (hintMask[r][c]) {
+                    input.classList.add('hint-cell');
+                    container.classList.add('hint-cell'); // Shows the grey background for clues
+                } else {
+                    input.classList.add('user-val');
+                
+                    // Live Error check
+                    if (showErrorEnabled) {
+                        if (!isValidPlacement(currentBoard, r, c, val)) {
+                            input.classList.add('error');
+                        } else if (countSolutions(currentBoard) === 0) {
+                            input.classList.add('no-solution');
+                        }
+                    }
+                }
+            }
+
+            const notesGrid = document.getElementById(`notes-${r}-${c}`);
+            if (notesGrid) {
+                const noteDivs = notesGrid.querySelectorAll('.mini-note');
+                noteDivs.forEach((div, i) => {
+                    // Only show notes if cell is empty AND toggle is ON AND note is true
+                    if (val === 0 && showNotes && notesBoard[r][c][i]) {
+                        div.innerText = i + 1;
+                    } else {
+                        div.innerText = '';
+                    }
+                });
+            }
         });
     }
-
+    
     function clearAnswers() {
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
@@ -534,33 +591,31 @@ function handleInput(e, r, c) {
         notesBoard = Array.from({ length: 9 }, () =>
             Array.from({ length: 9 }, () => Array(9).fill(false))
         );
-        document.getElementById('notesGrid').innerHTML = '';
-        document.getElementById('notesSection').style.display = 'none';
-        document.getElementById('notesToggle').checked = false;
+        const notesToggle = document.getElementById('notesToggle');
+        if (notesToggle) notesToggle.checked = false;
         saveGameState();
     }
 
     function resetFullBoard() {
         currentBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
         hintMask = Array.from({ length: 9 }, () => Array(9).fill(false));
-        lastFocused = null;
+
+        const notesToggle = document.getElementById('notesToggle');
+        if (notesToggle) notesToggle.checked = false;
+
+        const errorToggle = document.getElementById('errorToggle');
+        if (errorToggle) errorToggle.checked = false;
+        
+        clearNotes();        
         updateUI();
-        clearNotes();
         localStorage.removeItem('sudokyah_state');
     }
 
     function toggleNotes() {
-        const checkbox = document.getElementById('notesToggle');
-        const section = document.getElementById('notesSection');
-        
-        if (checkbox.checked) {
-            section.style.display = 'block';
+        if (document.getElementById('notesToggle').checked) {
             initializeAllNotes();
-            renderNotesGrid();
-            toast("Smart pencil marks generated.");
-        } else {
-            section.style.display = 'none';
         }
+        updateUI();
         saveGameState();
     }
 
@@ -581,38 +636,6 @@ function handleInput(e, r, c) {
         }
     }
 
-    function renderNotesGrid() {
-        const notesGrid = document.getElementById('notesGrid');
-        notesGrid.innerHTML = '';
-        for (let r = 0; r < 9; r++) {
-            for (let subR = 0; subR < 3; subR++) {
-                for (let c = 0; c < 9; c++) {
-                    for (let subC = 0; subC < 3; subC++) {
-                        const noteVal = (subR * 3) + subC + 1;
-                        const div = document.createElement('div');
-                        div.className = 'note-cell';
-                        if (notesBoard[r][c][noteVal - 1]) div.innerText = noteVal;
-                        div.onclick = () => {
-                            if (currentBoard[r][c] !== 0) return;
-                            notesBoard[r][c][noteVal - 1] = !notesBoard[r][c][noteVal - 1];
-                            div.innerText = notesBoard[r][c][noteVal - 1] ? noteVal : '';
-                            saveGameState();
-                        };
-                        if (subC === 2) {
-                            div.style.borderRight = "1px solid #444";
-                            if ((c + 1) % 3 === 0) div.style.borderRight = "var(--border-thick)";
-                        }
-                        if (subR === 2) {
-                            div.style.borderBottom = "1px solid #444";
-                            if ((r + 1) % 3 === 0) div.style.borderBottom = "var(--border-thick)";
-                        }
-                        notesGrid.appendChild(div);
-                    }
-                }
-            }
-        }
-    }
-
     function updateNotesAfterPlacement(r, c, val) {
         if (!val) return;
         notesBoard[r][c] = Array(9).fill(false);
@@ -625,7 +648,6 @@ function handleInput(e, r, c) {
                 notesBoard[row][col][val - 1] = false;
             }
         }
-        if (document.getElementById('notesSection').style.display === 'block') renderNotesGrid();
     }
 
     initUI();
