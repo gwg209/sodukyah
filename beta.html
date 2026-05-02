@@ -97,18 +97,6 @@
             background-color: white;
         }
 
-        .cell {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            box-sizing: border-box;
-            border: var(--border-thin);
-            text-align: center;
-            font-size: 1.2rem;
-            outline: none;
-            -webkit-appearance: none;
-            border-radius: 0;
-        }
-
         .cell-container {
             width: var(--cell-size);
             height: var(--cell-size);
@@ -129,7 +117,7 @@
         .cell {
             width: 100%;
             height: 100%;
-            background: transparent; !important;    /* So we can see notes behind it */
+            background: transparent;
             position: absolute;
             top: 0; left: 0;
             z-index: 2;
@@ -139,7 +127,7 @@
             outline: none;
         }
         
-        .cell.hint-cell { font-weight: bold; color: black !important; background-color: #eee; }
+        .cell.hint-cell { font-weight: bold; color: black !important; background-color: #eee !important; }
         .cell.user-val { color: #1155cc; }
         .cell.error { background-color: rgba(255, 153, 153, 0.6) !important;}
         .cell.correct { background-color: #99ff99; }
@@ -238,7 +226,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.8
+    SUDOKYAH v16.0.9
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -508,11 +496,10 @@
 
     function createSudokuByDifficulty(clues, level) {
         toast(`Generating ${level} puzzle...`);
-        resetFullBoard(); // This clears currentBoard and hintMask
+        resetFullBoard();
     
         let fullBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
         fillBoardRandomly(fullBoard);
-    
         currentBoard = pokeHoles(fullBoard, clues);
     
         for (let r = 0; r < 9; r++) {
@@ -606,8 +593,10 @@
                 if (hintMask[r][c]) {
                     input.classList.add('hint-cell');
                     container.classList.add('hint-cell'); // Shows the grey background for clues
+                    input.readOnly = true;
                 } else {
                     input.classList.add('user-val');
+                    input.readOnly - false;
                 
                     // Live Error check
                     if (showErrorEnabled) {
@@ -618,6 +607,8 @@
                         }
                     }
                 }
+            } else {
+                input.readOnly = false;
             }
 
             const notesGrid = document.getElementById(`notes-${r}-${c}`);
