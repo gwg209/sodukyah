@@ -234,7 +234,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.4
+    SUDOKYAH v16.0.5
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -631,9 +631,16 @@
     function resetFullBoard() {
         currentBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
         hintMask = Array.from({ length: 9 }, () => Array(9).fill(false));
-        lastFocused = null;
-        updateUI();
         clearNotes();
+        lastFocused = null;
+
+        const notesToggle = document.getElementById('notesToggle');
+        if (notesToggle) notesToggle.checked = false;
+
+        const errorToggle = document.getElementById('errorToggle');
+        if (errorToggle) errorToggle.checked = false;
+        
+        updateUI();
         localStorage.removeItem('sudokyah_state');
     }
 
