@@ -238,7 +238,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.7
+    SUDOKYAH v16.0.8
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -336,7 +336,7 @@
                 container.appendChild(input);
                 gridEl.appendChild(container);
             }
-            }
+        }
         if (!loadGameState()) {
             createSudokuByDifficulty(45, 'Beginner');
         }
@@ -355,23 +355,28 @@
 
     function loadGameState() {
         const saved = localStorage.getItem('sudokyah_state');
-        if (saved) {
+        if (!saved) return false;
+
+        try {
             const state = JSON.parse(saved);
             currentBoard = state.currentBoard;
             hintMask = state.hintMask;
             notesBoard = state.notesBoard || notesBoard;
-            document.getElementById('errorToggle').checked = state.showErrors || false;
-        
-            // Sync Notes Toggle
+
+            // Restore Toggle States
+            const errorToggle = document.getElementById('errorToggle');
             const notesToggle = document.getElementById('notesToggle');
-            notesToggle.checked = state.showNotes || false;
-            document.getElementById('notesSection').style.display = notesToggle.checked ? 'block' : 'none';
         
+            if (errorToggle) errorToggle.checked = state.showErrors || false;
+            if (notesToggle) notesToggle.checked = state.showNotes || false;
+
+            // Force the UI to draw what we just loaded
             updateUI();
-            if (notesToggle.checked) renderNotesGrid();
             return true;
+        } catch (e) {
+            console.error("Failed to load game state:", e);
+            return false;
         }
-        return false;
     }
 
     function handleInput(e, r, c) {
