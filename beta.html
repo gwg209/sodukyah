@@ -498,11 +498,27 @@
 
     function createSudokuByDifficulty(clues, level) {
         toast(`Generating ${level} puzzle...`);
-        resetFullBoard();
+        resetFullBoard(); // This clears currentBoard and hintMask
+    
         let fullBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
         fillBoardRandomly(fullBoard);
+    
         currentBoard = pokeHoles(fullBoard, clues);
-        updateUI(true);
+    
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (currentBoard[r][c] !== 0) {
+                    hintMask[r][c] = true;
+                }
+            }
+        }
+    
+    // If notes are already on, recalculate them for the new board
+        if (document.getElementById('notesToggle').checked) {
+            initializeAllNotes();
+        }
+    
+        updateUI(); 
         saveGameState();
         toast(`${level} ready!`);
     }
@@ -559,7 +575,7 @@
         }
     }
 
-    function updateUI(isNewPuzzle = false) {
+    function updateUI() {
         const inputs = document.querySelectorAll('.cell');
         const showNotes = document.getElementById('notesToggle').checked;
 
@@ -570,23 +586,24 @@
         
             input.value = val === 0 ? '' : val;
             input.classList.remove('hint-cell', 'user-val', 'error', 'correct', 'empty-highlight', 'hint-provided');
-        
-            if (isNewPuzzle && val !== 0) hintMask[r][c] = true;
-            if (hintMask[r][c]) input.classList.add('hint-cell');
-            else if (val !== 0) input.classList.add('user-val');
-
-            // Handle the Notes display inside the cell
-            const notesGrid = document.getElementById(`notes-${r}-${c}`);
-            const noteDivs = notesGrid.querySelectorAll('.mini-note');
-        
-            noteDivs.forEach((div, i) => {
-                // Hide notes if cell has a value or toggle is off
-                if (val !== 0 || !showNotes || !notesBoard[r][c][i]) {
-                    div.innerText = '';
+            if (val !== 0) {
+                if (hintMask[r][c]) {
+                    input.classList.add('hint-cell');
                 } else {
-                    div.innerText = i + 1;
+                    input.classList.add('user-val');
                 }
-            });
+            }
+            const notesGrid = document.getElementById(`notes-${r}-${c}`);
+            if (notesGrid) {
+                const noteDivs = notesGrid.querySelectorAll('.mini-note');
+                noteDivs.forEach((div, i) => {
+                    if (val === 0 && showNotes && notesBoard[r][c][i]) {
+                        div.innerText = i + 1;
+                    } else {
+                        div.innerText = '';
+                    }
+                });
+            }
         });
     }
 
