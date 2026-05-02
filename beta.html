@@ -129,7 +129,7 @@
         .cell {
             width: 100%;
             height: 100%;
-            background: transparent; !important;    /* So we can see notes behind it */
+            background: transparent !important;
             position: absolute;
             top: 0; left: 0;
             z-index: 2;
@@ -238,7 +238,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.8
+    SUDOKYAH v16.0.a
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -650,17 +650,14 @@
         notesBoard = Array.from({ length: 9 }, () =>
             Array.from({ length: 9 }, () => Array(9).fill(false))
         );
-        document.getElementById('notesGrid').innerHTML = '';
-        document.getElementById('notesSection').style.display = 'none';
-        document.getElementById('notesToggle').checked = false;
+        const notesToggle = document.getElementById('notesToggle');
+        if (notesToggle) notesToggle.checked = false;
         saveGameState();
     }
 
     function resetFullBoard() {
         currentBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
         hintMask = Array.from({ length: 9 }, () => Array(9).fill(false));
-        clearNotes();
-        lastFocused = null;
 
         const notesToggle = document.getElementById('notesToggle');
         if (notesToggle) notesToggle.checked = false;
@@ -668,6 +665,8 @@
         const errorToggle = document.getElementById('errorToggle');
         if (errorToggle) errorToggle.checked = false;
         
+        clearNotes();        
+        lastFocused = null;
         updateUI();
         localStorage.removeItem('sudokyah_state');
     }
