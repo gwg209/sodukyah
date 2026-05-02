@@ -12,7 +12,7 @@
             --bg-color: #f3f3f3;
             --header-bg: #222222;
             --notes-bg: #444444;
-            --cell-size: min(43px, 10vw); /* Shrinks on small screens */
+            --cell-size: min(43px, 10vw);
             --border-thick: 3px solid black;
             --border-thin: 1px solid #999;
         }
@@ -41,7 +41,6 @@
             align-items: center;
         }
 
-        /* Clickable Menu Styles */
         .menu-container {
             position: absolute;
             right: 10px;
@@ -50,11 +49,11 @@
             font-size: 1.5rem;
             cursor: pointer;
             z-index: 2000;
-            padding: 5px 10px; /* Larger tap target */
+            padding: 5px 10px;
         }
 
         .menu-content {
-            display: none; /* Controlled by JS toggle */
+            display: none;
             position: absolute;
             right: 0;
             top: 100%;
@@ -67,10 +66,7 @@
             margin-top: 5px;
         }
 
-        /* Show class for JS toggle */
-        .menu-content.show {
-            display: block;
-        }
+        .menu-content.show { display: block; }
 
         .menu-content .menu-item {
             color: #333;
@@ -82,9 +78,7 @@
             border-bottom: 1px solid #eee;
         }
 
-        .menu-content .menu-item:active {
-            background-color: #ddd;
-        }
+        .menu-content .menu-item:active { background-color: #ddd; }
 
         .menu-group-label {
             background: #eee;
@@ -111,7 +105,7 @@
             text-align: center;
             font-size: 1.2rem;
             outline: none;
-            -webkit-appearance: none; /* Mobile fix */
+            -webkit-appearance: none;
             border-radius: 0;
         }
 
@@ -161,7 +155,6 @@
 
         .cell.no-solution { color: #ff0000 !important; font-weight: bold; }
 
-        /* Toggle Switch Style for the Menu */
         .menu-item.toggle-item {
             display: flex;
             justify-content: space-between;
@@ -199,7 +192,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.1
+    SUDOKYAH v16.0.3
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -210,7 +203,13 @@
             <div class="menu-item" onclick="createSudokuByDifficulty(19, 'Kyah')">Kyah</div>
             
             <div class="menu-group-label">Tools</div>
-            <div class="menu-item" onclick="toggleNotes()">Show Notes</div>
+            <div class="menu-item toggle-item">
+                Show Notes 
+                <label class="switch">
+                    <input type="checkbox" id="notesToggle" onchange="toggleNotes()">
+                    <span class="slider"></span>
+                </label>
+            </div>
             <div class="menu-item toggle-item">
                 Live Errors 
                 <label class="switch">
@@ -253,13 +252,11 @@
     const menuBtn = document.getElementById('menuBtn');
     const menuContent = document.getElementById('menuContent');
 
-    // Toggle Menu on Click
     menuBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         menuContent.classList.toggle('show');
     });
 
-    // Close Menu when clicking anywhere else
     window.addEventListener('click', () => {
         if (menuContent.classList.contains('show')) {
             menuContent.classList.remove('show');
@@ -282,7 +279,6 @@
                 gridEl.appendChild(input);
             }
         }
-        // Load data if it exists, otherwise generate a default Beginner board
         if (!loadGameState()) {
             createSudokuByDifficulty(45, 'Beginner');
         }
@@ -293,7 +289,8 @@ function saveGameState() {
         currentBoard,
         hintMask,
         notesBoard,
-        showErrors: document.getElementById('errorToggle').checked // Save toggle state
+        showErrors: document.getElementById('errorToggle').checked,
+        showNotes: document.getElementById('notesToggle').checked
     };
     localStorage.setItem('sudokyah_state', JSON.stringify(state));
 }
@@ -306,10 +303,14 @@ function loadGameState() {
         hintMask = state.hintMask;
         notesBoard = state.notesBoard || notesBoard;
         document.getElementById('errorToggle').checked = state.showErrors || false;
+        
+        // Sync Notes Toggle
+        const notesToggle = document.getElementById('notesToggle');
+        notesToggle.checked = state.showNotes || false;
+        document.getElementById('notesSection').style.display = notesToggle.checked ? 'block' : 'none';
+        
         updateUI();
-        if (document.getElementById('notesSection').style.display === 'block') {
-            renderNotesGrid();
-        }
+        if (notesToggle.checked) renderNotesGrid();
         return true;
     }
     return false;
@@ -325,7 +326,6 @@ function handleInput(e, r, c) {
     const val = parseInt(input.value);
     const showErrorEnabled = document.getElementById('errorToggle').checked;
 
-    // Reset classes
     input.classList.remove('error', 'no-solution', 'correct', 'empty-highlight', 'user-val');
 
     if (isNaN(val) || val < 1 || val > 9) {
@@ -339,12 +339,9 @@ function handleInput(e, r, c) {
     input.classList.add('user-val');
 
     if (showErrorEnabled) {
-        // 1. Check for immediate duplicates (Basic Sudoku Rules)
         if (!isValidPlacement(currentBoard, r, c, val)) {
             input.classList.add('error');
-        } 
-        // 2. Check if this move makes the puzzle unsolvable
-        else if (countSolutions(currentBoard) === 0) {
+        } else if (countSolutions(currentBoard) === 0) {
             input.classList.add('no-solution');
         }
     }
@@ -371,24 +368,18 @@ function handleInput(e, r, c) {
         return true;
     }
 
-    // UPDATED: Improved Check Puzzle Logic
     function analyzeBoardSolutions() {
-        // 1. Check for immediate rule violations (duplicates)
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
                 const val = currentBoard[r][c];
-                if (val !== 0) {
-                    if (!isValidPlacement(currentBoard, r, c, val)) {
-                        alert(`Invalid: Conflict found at Row ${r+1}, Col ${c+1}.`);
-                        return;
-                    }
+                if (val !== 0 && !isValidPlacement(currentBoard, r, c, val)) {
+                    alert(`Invalid: Conflict found at Row ${r+1}, Col ${c+1}.`);
+                    return;
                 }
             }
         }
-
-        // 2. If valid so far, check if it leads to a solution
         const count = countSolutions(currentBoard);
-        if (count === 0) alert("No Solutions: Even though there are no duplicates, this configuration cannot be completed.");
+        if (count === 0) alert("No Solutions: This configuration cannot be completed.");
         else if (count === 1) alert("Valid: This puzzle has exactly one unique solution.");
         else alert(`Ambiguous: This puzzle has ${count > 1 ? 'multiple' : count} solutions.`);
     }
@@ -545,6 +536,7 @@ function handleInput(e, r, c) {
         );
         document.getElementById('notesGrid').innerHTML = '';
         document.getElementById('notesSection').style.display = 'none';
+        document.getElementById('notesToggle').checked = false;
         saveGameState();
     }
 
@@ -558,14 +550,18 @@ function handleInput(e, r, c) {
     }
 
     function toggleNotes() {
+        const checkbox = document.getElementById('notesToggle');
         const section = document.getElementById('notesSection');
-        const isVisible = section.style.display === 'block';
-        section.style.display = isVisible ? 'none' : 'block';
-        if (!isVisible) {
+        
+        if (checkbox.checked) {
+            section.style.display = 'block';
             initializeAllNotes();
             renderNotesGrid();
             toast("Smart pencil marks generated.");
+        } else {
+            section.style.display = 'none';
         }
+        saveGameState();
     }
 
     function initializeAllNotes() {
