@@ -11,7 +11,6 @@
         :root {
             --bg-color: #f3f3f3;
             --header-bg: #222222;
-            --notes-bg: #444444;
             --cell-size: min(43px, 10vw);
             --border-thick: 3px solid black;
             --border-thin: 1px solid #999;
@@ -157,27 +156,6 @@
             z-index: 1000;
         }
 
-        .notes-container { margin-top: 30px; display: none; }
-        .notes-header { background: var(--notes-bg); color: white; text-align: center; padding: 5px; font-weight: bold; }
-        .notes-grid { 
-            display: grid; 
-            grid-template-columns: repeat(27, 15px); 
-            grid-template-rows: repeat(27, 15px); 
-            border: var(--border-thick); 
-            background: #fafafa; 
-            font-size: 9px; 
-            color: #444; 
-            margin: 0 auto;
-        }
-
-        .note-cell { 
-            border: 0.1px dotted #ddd; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            box-sizing: border-box;
-        }
-
         .mini-notes-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -238,7 +216,7 @@
 <body>
 
 <div class="header">
-    SUDOKYAH v16.0.a
+    SUDOKYAH v16
     <div class="menu-container" id="menuBtn">
         ☰
         <div class="menu-content" id="menuContent">
@@ -263,14 +241,11 @@
                     <span class="slider"></span>
                 </label>
             </div>
-            <div class="menu-item" onclick="giveHint()">Give a Hint</div>
-            <div class="menu-item" onclick="analyzeBoardSolutions()">Check Puzzle</div>
             <div class="menu-item" onclick="solveSudoku()">Solve Puzzle</div>
             <div class="menu-item" onclick="scoreSudokuPuzzle()">Score Puzzle</div>
             
             <div class="menu-group-label">Clear</div>
             <div class="menu-item" onclick="clearAnswers()" style="color: #cc0000;">Answers</div>
-            <div class="menu-item" onclick="clearNotes()" style="color: #cc0000;">Notes</div>
             <div class="menu-item" onclick="resetFullBoard()" style="color: #cc0000;">Board</div>
         </div>
     </div>
@@ -283,8 +258,6 @@
 <script>
     let currentBoard = Array.from({ length: 9 }, () => Array(9).fill(0));
     let hintMask = Array.from({ length: 9 }, () => Array(9).fill(false));
-    let lastFocused = null;
-
     let notesBoard = Array.from({ length: 9 }, () =>
       Array.from({ length: 9 }, () => Array(9).fill(false))
     );
@@ -330,7 +303,6 @@
                 input.dataset.row = r;
                 input.dataset.col = c;
                 input.oninput = (e) => handleInput(e, r, c);
-                input.onfocus = () => { lastFocused = {r, c}; };
 
                 container.appendChild(notesGrid);
                 container.appendChild(input);
@@ -430,22 +402,6 @@
             if ((curR !== r || curC !== c) && board[curR][curC] === num) return false;
         }
         return true;
-    }
-
-    function analyzeBoardSolutions() {
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                const val = currentBoard[r][c];
-                if (val !== 0 && !isValidPlacement(currentBoard, r, c, val)) {
-                    alert(`Invalid: Conflict found at Row ${r+1}, Col ${c+1}.`);
-                    return;
-                }
-            }
-        }
-        const count = countSolutions(currentBoard);
-        if (count === 0) alert("No Solutions: This configuration cannot be completed.");
-        else if (count === 1) alert("Valid: This puzzle has exactly one unique solution.");
-        else alert(`Ambiguous: This puzzle has ${count > 1 ? 'multiple' : count} solutions.`);
     }
 
     function fillBoardRandomly(board) {
@@ -571,21 +527,6 @@
         }
     }
 
-    function giveHint() {
-        if (!lastFocused) { alert("Please click on a cell first."); return; }
-        const {r, c} = lastFocused;
-        if (hintMask[r][c] || currentBoard[r][c] !== 0) return;
-        let solveCopy = JSON.parse(JSON.stringify(currentBoard));
-        if (fillBoardRandomly(solveCopy)) {
-            currentBoard[r][c] = solveCopy[r][c];
-            updateUI();
-            document.querySelectorAll('.cell')[r * 9 + c].classList.add('hint-provided');
-            saveGameState();
-        } else {
-            alert("No solution possible with current entries.");
-        }
-    }
-
     function updateUI() {
         const inputs = document.querySelectorAll('.cell');
         const showNotes = document.getElementById('notesToggle').checked;
@@ -666,7 +607,6 @@
         if (errorToggle) errorToggle.checked = false;
         
         clearNotes();        
-        lastFocused = null;
         updateUI();
         localStorage.removeItem('sudokyah_state');
     }
@@ -690,38 +630,6 @@
                         if (isValidPlacement(currentBoard, r, c, n)) {
                             notesBoard[r][c][n - 1] = true;
                         }
-                    }
-                }
-            }
-        }
-    }
-
-    function renderNotesGrid() {
-        const notesGrid = document.getElementById('notesGrid');
-        notesGrid.innerHTML = '';
-        for (let r = 0; r < 9; r++) {
-            for (let subR = 0; subR < 3; subR++) {
-                for (let c = 0; c < 9; c++) {
-                    for (let subC = 0; subC < 3; subC++) {
-                        const noteVal = (subR * 3) + subC + 1;
-                        const div = document.createElement('div');
-                        div.className = 'note-cell';
-                        if (notesBoard[r][c][noteVal - 1]) div.innerText = noteVal;
-                        div.onclick = () => {
-                            if (currentBoard[r][c] !== 0) return;
-                            notesBoard[r][c][noteVal - 1] = !notesBoard[r][c][noteVal - 1];
-                            div.innerText = notesBoard[r][c][noteVal - 1] ? noteVal : '';
-                            saveGameState();
-                        };
-                        if (subC === 2) {
-                            div.style.borderRight = "1px solid #444";
-                            if ((c + 1) % 3 === 0) div.style.borderRight = "var(--border-thick)";
-                        }
-                        if (subR === 2) {
-                            div.style.borderBottom = "1px solid #444";
-                            if ((r + 1) % 3 === 0) div.style.borderBottom = "var(--border-thick)";
-                        }
-                        notesGrid.appendChild(div);
                     }
                 }
             }
